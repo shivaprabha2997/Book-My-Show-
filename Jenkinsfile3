@@ -97,7 +97,7 @@ pipeline {
                 docker run -d \
                 --name bms \
                 -p 3000:3000 \
-                YOUR_DOCKER_USERNAME/bms:latest
+                 shivadocker2997/bms:latest
                 '''
             }
         }
