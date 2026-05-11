@@ -75,11 +75,11 @@ pipeline {
                     toolName: 'docker') {
 
                         sh '''
-                        docker build -t YOUR_DOCKER_USERNAME/bms:latest \
+                        docker build -t shivadocker2997/bms:latest \
                         -f bookmyshow-app/Dockerfile \
                         bookmyshow-app
 
-                        docker push YOUR_DOCKER_USERNAME/bms:latest
+                        docker push shivadocker2997/bms:latest
                         '''
                     }
                 }
