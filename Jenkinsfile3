@@ -29,7 +29,7 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh '''
-                    $SCANNER_HOME/bin/sonar-scanner \
+                    $SCANNER_HOME/bin/sq \
                     -Dsonar.projectName=BMS \
                     -Dsonar.projectKey=BMS
                     '''
