@@ -97,9 +97,49 @@ pipeline {
                 docker run -d \
                 --name bms \
                 -p 3000:3000 \
-                 shivadocker2997/bms:latest
+                shivadocker2997/bms:latest
                 '''
             }
+        }
+
+        stage('Send Email Notification') {
+            steps {
+                emailext (
+                    subject: "Jenkins Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    <h2>Build Successful</h2>
+
+                    <p><b>Project:</b> ${env.JOB_NAME}</p>
+                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                    <p><b>Build URL:</b> ${env.BUILD_URL}</p>
+
+                    <p>Docker Image: shivadocker2997/bms:latest</p>
+
+                    <p>Deployment completed successfully.</p>
+                    """,
+                    to: "yourmail@gmail.com",
+                    mimeType: 'text/html'
+                )
+            }
+        }
+    }
+
+    post {
+        failure {
+            emailext (
+                subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <h2>Build Failed</h2>
+
+                <p><b>Project:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Build URL:</b> ${env.BUILD_URL}</p>
+
+                <p>Please check Jenkins console logs.</p>
+                """,
+                to: "sivaprabha997@gmail.com",
+                mimeType: 'text/html'
+            )
         }
     }
 }
