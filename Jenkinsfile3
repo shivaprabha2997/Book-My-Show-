@@ -40,8 +40,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false,
-                    credentialsId: 'sq'
+                    waitForQualityGate abortPipeline: false
                 }
             }
         }
@@ -67,12 +66,11 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-
                 script {
-
                     withDockerRegistry(
-                    credentialsId: 'shivadocker_cred',
-                    toolName: 'docker') {
+                        credentialsId: 'shivadocker_cred',
+                        toolName: 'docker'
+                    ) {
 
                         sh '''
                         docker build -t shivadocker2997/bms:latest \
@@ -101,44 +99,53 @@ pipeline {
                 '''
             }
         }
-
-        stage('Send Email Notification') {
-            steps {
-                emailext (
-                    subject: "Jenkins Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <h2>Build Successful</h2>
-
-                    <p><b>Project:</b> ${env.JOB_NAME}</p>
-                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                    <p><b>Build URL:</b> ${env.BUILD_URL}</p>
-
-                    <p>Docker Image: shivadocker2997/bms:latest</p>
-
-                    <p>Deployment completed successfully.</p>
-                    """,
-                    to: "yourmail@gmail.com",
-                    mimeType: 'text/html'
-                )
-            }
-        }
     }
 
     post {
+
+        success {
+            emailext (
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """
+                <h2>Build Successful</h2>
+
+                <p><b>Project:</b> ${env.JOB_NAME}</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Build URL:</b>
+                <a href="${env.BUILD_URL}">
+                ${env.BUILD_URL}
+                </a></p>
+
+                <p>Docker Image:
+                shivadocker2997/bms:latest</p>
+
+                <p>Deployment completed successfully.</p>
+                """,
+                to: 'sivaprabha997@gmail.com',
+                mimeType: 'text/html',
+                attachLog: true,
+                attachmentsPattern: 'trivyfs.txt'
+            )
+        }
+
         failure {
             emailext (
-                subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
                 <h2>Build Failed</h2>
 
                 <p><b>Project:</b> ${env.JOB_NAME}</p>
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                <p><b>Build URL:</b> ${env.BUILD_URL}</p>
+                <p><b>Build URL:</b>
+                <a href="${env.BUILD_URL}">
+                ${env.BUILD_URL}
+                </a></p>
 
                 <p>Please check Jenkins console logs.</p>
                 """,
-                to: "sivaprabha997@gmail.com",
-                mimeType: 'text/html'
+                to: 'sivaprabha997@gmail.com',
+                mimeType: 'text/html',
+                attachLog: true
             )
         }
     }
