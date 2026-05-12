@@ -45,12 +45,12 @@ pipeline {
 }
 
         stage('Quality Gate') {
-            steps {
-                script {
-                    waitForQualityGate abortPipeline: false
-                }
-            }
+    steps {
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
         }
+    }
+}
 
         stage('Install Dependencies') {
             steps {
