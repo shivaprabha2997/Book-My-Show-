@@ -26,42 +26,55 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-    steps {
+            steps {
 
-        dir('bookmyshow-app') {
+                dir('bookmyshow-app') {
 
-            withSonarQubeEnv('sonar-server') {
+                    withSonarQubeEnv('sonar-server') {
 
-                sh '''
-                $SCANNER_HOME/bin/sonar-scanner \
-                -Dsonar.projectKey=BMS \
-                -Dsonar.projectName=BMS \
-                -Dsonar.sources=. \
-                -Dsonar.sourceEncoding=UTF-8
-                '''
+                        sh '''
+                        $SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=BMS \
+                        -Dsonar.projectName=BMS \
+                        -Dsonar.sources=. \
+                        -Dsonar.sourceEncoding=UTF-8
+                        '''
+                    }
+                }
             }
         }
-    }
-}
 
-stage('Quality Gate') {
-    steps {
-        timeout(time: 10, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: false
+        stage('Quality Gate') {
+            steps {
+
+                timeout(time: 10, unit: 'MINUTES') {
+
+                    script {
+
+                        def qg = waitForQualityGate()
+
+                        echo "Quality Gate Status: ${qg.status}"
+
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
         }
-    }
-}
 
         stage('Install Dependencies') {
             steps {
-                sh '''
-                cd bookmyshow-app
 
-                rm -rf node_modules
-                rm -rf package-lock.json
+                dir('bookmyshow-app') {
 
-                npm install
-                '''
+                    sh '''
+                    rm -rf node_modules
+                    rm -rf package-lock.json
+
+                    npm install
+                    '''
+                }
             }
         }
 
@@ -73,7 +86,9 @@ stage('Quality Gate') {
 
         stage('Docker Build & Push') {
             steps {
+
                 script {
+
                     withDockerRegistry(
                         credentialsId: 'shivadocker_cred',
                         toolName: 'docker'
@@ -88,6 +103,12 @@ stage('Quality Gate') {
                         '''
                     }
                 }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh 'trivy image shivadocker2997/bms:latest > trivyimage.txt'
             }
         }
 
@@ -111,19 +132,22 @@ stage('Quality Gate') {
     post {
 
         success {
+
             emailext (
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
                 <h2>Build Successful</h2>
 
                 <p><b>Project:</b> ${env.JOB_NAME}</p>
+
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+
                 <p><b>Build URL:</b>
                 <a href="${env.BUILD_URL}">
                 ${env.BUILD_URL}
                 </a></p>
 
-                <p>Docker Image:
+                <p><b>Docker Image:</b>
                 shivadocker2997/bms:latest</p>
 
                 <p>Deployment completed successfully.</p>
@@ -131,18 +155,21 @@ stage('Quality Gate') {
                 to: 'sivaprabha997@gmail.com',
                 mimeType: 'text/html',
                 attachLog: true,
-                attachmentsPattern: 'trivyfs.txt'
+                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
             )
         }
 
         failure {
+
             emailext (
                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
                 <h2>Build Failed</h2>
 
                 <p><b>Project:</b> ${env.JOB_NAME}</p>
+
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+
                 <p><b>Build URL:</b>
                 <a href="${env.BUILD_URL}">
                 ${env.BUILD_URL}
@@ -152,8 +179,13 @@ stage('Quality Gate') {
                 """,
                 to: 'sivaprabha997@gmail.com',
                 mimeType: 'text/html',
-                attachLog: true
+                attachLog: true,
+                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
             )
+        }
+
+        always {
+            cleanWs()
         }
     }
 }
