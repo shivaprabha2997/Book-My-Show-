@@ -4,14 +4,12 @@ FROM node:18
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package.json package-lock.json ./
 
-# Force install a compatible PostCSS version to fix the issue
-RUN npm install postcss@8.4.21 postcss-safe-parser@6.0.0 --legacy-peer-deps
-
-# Install dependencies
-RUN npm install
+# Install dependencies and compatible PostCSS version
+RUN npm install postcss@8.4.21 postcss-safe-parser@6.0.0 --legacy-peer-deps && \
+    npm install
 
 # Copy the entire project
 COPY . .
