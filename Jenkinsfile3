@@ -27,7 +27,7 @@ pipeline {
             steps {
 
                 git branch: 'main',
-                url: 'https://github.com/ASKFORTESAWS/Book-My-Show.git'
+                url: 'https://github.com/shivaprabha2997/Book-My-Show-.git'
 
                 sh 'ls -la'
             }
