@@ -1,9 +1,14 @@
 pipeline {
+
     agent any
 
     tools {
-        jdk 'JDK21'
-        nodejs 'nodejs23'
+        jdk 'jdk-21'
+        nodejs 'node23'
+    }
+
+    options {
+        timestamps()
     }
 
     environment {
@@ -20,26 +25,24 @@ pipeline {
 
         stage('Checkout from Git') {
             steps {
+
                 git branch: 'main',
-                url: 'https://github.com/shivaprabha2997/Book-My-Show-.git'
+                url: 'https://github.com/ASKFORTESAWS/Book-My-Show.git'
+
+                sh 'ls -la'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
 
-                dir('bookmyshow-app') {
+                withSonarQubeEnv('sonar-server') {
 
-                    withSonarQubeEnv('sonar-server') {
-
-                        sh '''
-                        $SCANNER_HOME/bin/sonar-scanner \
-                        -Dsonar.projectKey=BMS \
-                        -Dsonar.projectName=BMS \
-                        -Dsonar.sources=. \
-                        -Dsonar.sourceEncoding=UTF-8
-                        '''
-                    }
+                    sh '''
+                    $SCANNER_HOME/bin/sonar-scanner \
+                    -Dsonar.projectName=BOOKMYSHOW \
+                    -Dsonar.projectKey=BOOKMYSHOW
+                    '''
                 }
             }
         }
@@ -47,18 +50,10 @@ pipeline {
         stage('Quality Gate') {
             steps {
 
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
 
-                    script {
-
-                        def qg = waitForQualityGate()
-
-                        echo "Quality Gate Status: ${qg.status}"
-
-                        if (qg.status != 'OK') {
-                            error "Pipeline aborted due to Quality Gate failure: ${qg.status}"
-                        }
-                    }
+                    waitForQualityGate abortPipeline: false,
+                    credentialsId: 'sq'
                 }
             }
         }
@@ -66,21 +61,27 @@ pipeline {
         stage('Install Dependencies') {
             steps {
 
-                dir('bookmyshow-app') {
+                sh '''
+                cd bookmyshow-app
 
-                    sh '''
-                    rm -rf node_modules
-                    rm -rf package-lock.json
+                echo "Removing old dependencies..."
 
-                    npm install
-                    '''
-                }
+                rm -rf node_modules
+                rm -rf package-lock.json
+
+                echo "Installing dependencies..."
+
+                npm install
+                '''
             }
         }
 
         stage('Trivy FS Scan') {
             steps {
-                sh 'trivy fs . > trivyfs.txt'
+
+                sh '''
+                trivy fs . > trivyfs.txt
+                '''
             }
         }
 
@@ -90,25 +91,23 @@ pipeline {
                 script {
 
                     withDockerRegistry(
-                        credentialsId: 'shivadocker_cred',
-                        toolName: 'docker'
-                    ) {
+                    credentialsId: 'shivadocker_cred',
+                    toolName: 'docker') {
 
                         sh '''
-                        docker build -t shivadocker2997/bms:latest \
+                        echo "Building Docker Image..."
+
+                        docker build \
+                        -t shivadocker2997/bookmyshow:latest \
                         -f bookmyshow-app/Dockerfile \
                         bookmyshow-app
 
-                        docker push shivadocker2997/bms:latest
+                        echo "Pushing Docker Image..."
+
+                        docker push shivadocker2997/bookmyshow:latest
                         '''
                     }
                 }
-            }
-        }
-
-        stage('Trivy Image Scan') {
-            steps {
-                sh 'trivy image shivadocker2997/bms:latest > trivyimage.txt'
             }
         }
 
@@ -116,14 +115,29 @@ pipeline {
             steps {
 
                 sh '''
-                docker stop bms || true
+                echo "Stopping old container..."
 
-                docker rm bms || true
+                docker stop bookmyshow || true
+
+                docker rm bookmyshow || true
+
+                echo "Running new container..."
 
                 docker run -d \
-                --name bms \
+                --restart=always \
+                --name bookmyshow \
                 -p 3000:3000 \
-                shivadocker2997/bms:latest
+                shivadocker2997/bookmyshow:latest
+
+                echo "Checking running containers..."
+
+                docker ps
+
+                echo "Fetching container logs..."
+
+                sleep 10
+
+                docker logs bookmyshow
                 '''
             }
         }
@@ -133,36 +147,39 @@ pipeline {
 
         success {
 
-            emailext (
-                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            emailext(
+                subject: "SUCCESS: ${env.JOB_NAME} Build #${env.BUILD_NUMBER}",
+
                 body: """
-                <h2>Build Successful</h2>
+                <h2>Build Success</h2>
 
                 <p><b>Project:</b> ${env.JOB_NAME}</p>
 
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
 
+                <p><b>Status:</b> SUCCESS</p>
+
                 <p><b>Build URL:</b>
                 <a href="${env.BUILD_URL}">
                 ${env.BUILD_URL}
                 </a></p>
-
-                <p><b>Docker Image:</b>
-                shivadocker2997/bms:latest</p>
-
-                <p>Deployment completed successfully.</p>
                 """,
+
                 to: 'sivaprabha997@gmail.com',
+
                 mimeType: 'text/html',
+
                 attachLog: true,
-                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
+
+                attachmentsPattern: 'trivyfs.txt'
             )
         }
 
         failure {
 
-            emailext (
-                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            emailext(
+                subject: "FAILED: ${env.JOB_NAME} Build #${env.BUILD_NUMBER}",
+
                 body: """
                 <h2>Build Failed</h2>
 
@@ -170,22 +187,20 @@ pipeline {
 
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
 
+                <p><b>Status:</b> FAILED</p>
+
                 <p><b>Build URL:</b>
                 <a href="${env.BUILD_URL}">
                 ${env.BUILD_URL}
                 </a></p>
-
-                <p>Please check Jenkins console logs.</p>
                 """,
-                to: 'sivaprabha997@gmail.com',
-                mimeType: 'text/html',
-                attachLog: true,
-                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
-            )
-        }
 
-        always {
-            cleanWs()
+                to: 'sivaprabha997@gmail.com',
+
+                mimeType: 'text/html',
+
+                attachLog: true
+            )
         }
     }
 }
