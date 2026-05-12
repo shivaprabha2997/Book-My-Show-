@@ -4,7 +4,7 @@ FROM node:18
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package.json and package-lock.json
 COPY package.json package-lock.json ./
 
 # Install dependencies and compatible PostCSS version
