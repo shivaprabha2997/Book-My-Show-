@@ -34,28 +34,32 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            steps {
+    steps {
 
-                withSonarQubeEnv('sonar-server') {
+        dir('bookmyshow-app') {
 
-                    sh '''
-                    $SCANNER_HOME/bin/sonar-scanner \
-                    -Dsonar.projectName=BOOKMYSHOW \
-                    -Dsonar.projectKey=BOOKMYSHOW
-                    '''
-                }
+            withSonarQubeEnv('sonar-server') {
+
+                sh '''
+                $SCANNER_HOME/bin/sonar-scanner \
+                -Dsonar.projectName=BOOKMYSHOW \
+                -Dsonar.projectKey=BOOKMYSHOW \
+                -Dsonar.sources=. \
+                -Dsonar.exclusions=node_modules/**,build/**,coverage/**
+                '''
             }
         }
-
+    }
+}
         stage('Quality Gate') {
-            steps {
-                script {
-                    waitForQualityGate abortPipeline: false,
-                    credentialsId: 'sq_cred'
-                }
+    steps {
+        timeout(time: 2, unit: 'MINUTES') {
+            script {
+                waitForQualityGate abortPipeline: false
             }
         }
-
+    }
+}
         stage('Install Dependencies') {
             steps {
 
